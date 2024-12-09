@@ -1,38 +1,47 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTaskStore } from '../store/useTaskStore';
 import { BarChart3, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useThemeStore } from '../store/useThemeStore';
+import { isToday, startOfDay } from 'date-fns';
 
 export function DailyReport() {
   const tasks = useTaskStore((state) => state.tasks);
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
+  const [report, setReport] = useState({
+    completed: 0,
+    total: 0,
+    late: 0,
+    completionRate: 0
+  });
 
-  const report = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+  useEffect(() => {
+    // Filtra tarefas de hoje
     const todaysTasks = tasks.filter((task) => {
-      const taskDate = new Date(task.startTime);
-      taskDate.setHours(0, 0, 0, 0);
-      return taskDate.getTime() === today.getTime();
+      const taskDate = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+      return isToday(taskDate);
     });
 
+    // Conta tarefas concluídas
     const completed = todaysTasks.filter((task) => task.completed).length;
     const total = todaysTasks.length;
+
+    // Verifica tarefas atrasadas
+    const now = new Date();
     const late = todaysTasks.filter((task) => {
-      const now = new Date();
-      return !task.completed && new Date(task.endTime) < now;
+      const endTime = task.endTime instanceof Date ? task.endTime : new Date(task.endTime);
+      return !task.completed && endTime < now;
     }).length;
 
-    const completionRate = total > 0 ? (completed / total) * 100 : 0;
+    // Calcula a taxa de conclusão
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    return {
+    setReport({
       completed,
       total,
       late,
-      completionRate,
-    };
-  }, [tasks]);
+      completionRate
+    });
+  }, [tasks]); // Recalcula quando as tarefas mudarem
 
   return (
     <div className={`${
@@ -93,7 +102,7 @@ export function DailyReport() {
             <p className={`text-2xl font-bold ${
               isDarkMode ? 'text-blue-300' : 'text-blue-700'
             }`}>
-              {report.completionRate.toFixed(0)}%
+              {report.completionRate}%
             </p>
           </div>
         </div>
